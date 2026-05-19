@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { BarChart3, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { GoldCandle, GoldRealtimeData, MarketSnapshot } from '../types';
-import { chinaTimestamp, formatChinaMonthDayTime } from '../lib/time';
+import { formatChinaDateTime, formatSourceMonthDayTime, sourceTimestamp } from '../lib/time';
 
 interface GoldDecisionChartProps {
   marketData?: GoldRealtimeData;
@@ -134,7 +134,7 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
 
       return {
         time: candle.datetime,
-        label: formatChinaMonthDayTime(candle.datetime),
+        label: formatSourceMonthDayTime(candle.datetime),
         close: candle.close,
         high: candle.high,
         low: candle.low,
@@ -150,14 +150,14 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
 
   const snapshotMarks = useMemo(() => {
     if (!chartData.length || !snapshots.length) return [];
-    const first = chinaTimestamp(chartData[0].time);
-    const last = chinaTimestamp(chartData[chartData.length - 1].time);
+    const first = sourceTimestamp(chartData[0].time);
+    const last = sourceTimestamp(chartData[chartData.length - 1].time);
     return snapshots
       .filter(snapshot => snapshot.marketData?.price && snapshot.marketData.timestamp >= first - 12 * 60 * 60 * 1000 && snapshot.marketData.timestamp <= last + 12 * 60 * 60 * 1000)
       .slice(0, 40)
       .map(snapshot => {
         const nearest = chartData.reduce((best, point) => {
-          const diff = Math.abs(chinaTimestamp(point.time) - snapshot.marketData.timestamp);
+          const diff = Math.abs(sourceTimestamp(point.time) - snapshot.marketData.timestamp);
           return diff < best.diff ? { point, diff } : best;
         }, { point: chartData[0], diff: Number.POSITIVE_INFINITY });
         return {
@@ -175,7 +175,7 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
           <BarChart3 className="w-4 h-4 text-amber-300" />
           <div>
             <h3 className="text-sm font-semibold text-slate-100">黄金行情与AI决策图</h3>
-            <p className="text-[11px] text-slate-500">15分钟默认分析，行情快照服务端留存，指标参数可调</p>
+            <p className="text-[11px] text-slate-500">历史K线按 Twelve Data 返回时间显示，不包含未来预测；行情快照按北京时间记录</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -199,8 +199,8 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 12, right: 64, left: 8, bottom: 8 }}>
                 <CartesianGrid stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="time" tickFormatter={(value) => formatChinaMonthDayTime(String(value))} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={24} />
-                <YAxis domain={['dataMin - 8', 'dataMax + 8']} orientation="right" tick={{ fill: '#94a3b8', fontSize: 11 }} width={64} />
+                <XAxis dataKey="time" tickFormatter={(value) => formatSourceMonthDayTime(String(value))} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={24} />
+                <YAxis domain={['dataMin - 8', 'dataMax + 8']} orientation="right" tick={{ fill: '#94a3b8', fontSize: 11 }} tickFormatter={(value) => Number(value).toFixed(2)} width={64} />
                 <Tooltip
                   contentStyle={{ background: '#020617', border: '1px solid #334155', borderRadius: 6, color: '#e2e8f0' }}
                   formatter={(value: number, name: string) => [Number(value).toFixed(2), name]}
@@ -255,7 +255,8 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
           <div className="text-[11px] text-slate-500 leading-5 border-t border-slate-800 pt-3">
             快照数: {snapshots.length}<br />
             当前源: {marketData?.source || 'N/A'}<br />
-            现价: {marketData?.price ? `$${marketData.price.toFixed(2)}` : 'N/A'}
+            现价: {marketData?.price ? `$${marketData.price.toFixed(2)}` : 'N/A'}<br />
+            最新行情: {marketData?.timestamp ? formatChinaDateTime(marketData.timestamp) : 'N/A'}
           </div>
         </div>
       </div>

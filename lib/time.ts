@@ -3,7 +3,7 @@ const CHINA_TIME_ZONE = 'Asia/Shanghai';
 function normalizeDateInput(value: string | number | Date) {
   if (typeof value !== 'string') return value;
   if (/([zZ]|[+-]\d{2}:?\d{2})$/.test(value)) return value;
-  return value.includes('T') ? `${value}Z` : `${value.replace(' ', 'T')}Z`;
+  return value.includes('T') ? value : value.replace(' ', 'T');
 }
 
 export function toChinaDate(value: string | number | Date) {
@@ -46,4 +46,17 @@ export function formatChinaTime(value: string | number | Date) {
 
 export function chinaTimestamp(value: string | number | Date) {
   return toChinaDate(value).getTime();
+}
+
+export function formatSourceDateTime(value: string) {
+  return value.replace('T', ' ').slice(0, 16);
+}
+
+export function formatSourceMonthDayTime(value: string) {
+  const normalized = value.replace('T', ' ');
+  return normalized.length >= 16 ? normalized.slice(5, 16) : normalized;
+}
+
+export function sourceTimestamp(value: string) {
+  return new Date(value.includes('T') ? value : value.replace(' ', 'T')).getTime();
 }
