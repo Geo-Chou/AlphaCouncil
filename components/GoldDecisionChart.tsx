@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { BarChart3, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { GoldCandle, GoldRealtimeData, MarketSnapshot } from '../types';
+import { chinaTimestamp, formatChinaMonthDayTime } from '../lib/time';
 
 interface GoldDecisionChartProps {
   marketData?: GoldRealtimeData;
@@ -133,7 +134,7 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
 
       return {
         time: candle.datetime,
-        label: candle.datetime.slice(5, 16),
+        label: formatChinaMonthDayTime(candle.datetime),
         close: candle.close,
         high: candle.high,
         low: candle.low,
@@ -149,14 +150,14 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
 
   const snapshotMarks = useMemo(() => {
     if (!chartData.length || !snapshots.length) return [];
-    const first = new Date(chartData[0].time).getTime();
-    const last = new Date(chartData[chartData.length - 1].time).getTime();
+    const first = chinaTimestamp(chartData[0].time);
+    const last = chinaTimestamp(chartData[chartData.length - 1].time);
     return snapshots
       .filter(snapshot => snapshot.marketData?.price && snapshot.marketData.timestamp >= first - 12 * 60 * 60 * 1000 && snapshot.marketData.timestamp <= last + 12 * 60 * 60 * 1000)
       .slice(0, 40)
       .map(snapshot => {
         const nearest = chartData.reduce((best, point) => {
-          const diff = Math.abs(new Date(point.time).getTime() - snapshot.marketData.timestamp);
+          const diff = Math.abs(chinaTimestamp(point.time) - snapshot.marketData.timestamp);
           return diff < best.diff ? { point, diff } : best;
         }, { point: chartData[0], diff: Number.POSITIVE_INFINITY });
         return {
@@ -198,7 +199,7 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 12, right: 64, left: 8, bottom: 8 }}>
                 <CartesianGrid stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="time" tickFormatter={(value) => String(value).slice(5, 16)} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={24} />
+                <XAxis dataKey="time" tickFormatter={(value) => formatChinaMonthDayTime(String(value))} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={24} />
                 <YAxis domain={['dataMin - 8', 'dataMax + 8']} orientation="right" tick={{ fill: '#94a3b8', fontSize: 11 }} width={64} />
                 <Tooltip
                   contentStyle={{ background: '#020617', border: '1px solid #334155', borderRadius: 6, color: '#e2e8f0' }}

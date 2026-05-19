@@ -1,4 +1,5 @@
 import { GoldRealtimeData } from '../types';
+import { formatChinaDateTime, formatChinaMonthDayTime } from '../lib/time';
 
 const BACKEND_API_URL = '/api/market';
 
@@ -29,7 +30,7 @@ export function formatGoldDataForPrompt(data: GoldRealtimeData | null): string {
 
   const formatPrice = (value?: number) => (Number.isFinite(value) ? value!.toFixed(2) : 'N/A');
   const changePrefix = data.change >= 0 ? '+' : '';
-  const timeText = new Date(data.timestamp).toLocaleString('zh-CN', { hour12: false });
+  const timeText = formatChinaDateTime(data.timestamp);
   const spread = Number.isFinite(data.bid) && Number.isFinite(data.ask) ? data.ask! - data.bid! : undefined;
   const cn = data.cnReference;
   const candleSeries = data.candleSeries || (data.candles ? { '15min': data.candles } : {});
@@ -38,7 +39,7 @@ export function formatGoldDataForPrompt(data: GoldRealtimeData | null): string {
         .map(([interval, candles]) => {
           const recentCandles = candles.slice(0, 8);
           const lines = recentCandles.map(candle =>
-            `${candle.datetime}: O ${formatPrice(candle.open)} / H ${formatPrice(candle.high)} / L ${formatPrice(candle.low)} / C ${formatPrice(candle.close)}`
+            `${formatChinaMonthDayTime(candle.datetime)}: O ${formatPrice(candle.open)} / H ${formatPrice(candle.high)} / L ${formatPrice(candle.low)} / C ${formatPrice(candle.close)}`
           );
           return `【${interval}】\n  ${lines.join('\n  ')}`;
         })
@@ -55,6 +56,7 @@ export function formatGoldDataForPrompt(data: GoldRealtimeData | null): string {
   交易代码: ${data.symbol}
   计价单位: ${data.currency}/${data.unit}
   数据时间: ${timeText}
+  时间时区: 中国标准时间 UTC+8 / Asia/Shanghai
   数据来源: ${data.source}${data.sourceNote ? ` (${data.sourceNote})` : ''}
   API消耗估算: ${data.creditsEstimate ? `约 ${data.creditsEstimate} credits/次分析` : 'N/A'}
 

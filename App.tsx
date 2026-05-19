@@ -18,6 +18,7 @@ import AgentCard from './components/AgentCard';
 import GoldDecisionChart from './components/GoldDecisionChart';
 import { DEFAULT_AGENTS } from './constants';
 import { getMarketHistory, saveMarketSnapshot, clearMarketHistory } from './lib/marketHistory';
+import { formatChinaTime, formatChinaDateTime } from './lib/time';
 import { LayoutDashboard, BrainCircuit, ShieldCheck, Gavel, RefreshCw, AlertTriangle, Settings2, Database, History, Trash2, Clock, X, TimerReset } from 'lucide-react';
 
 const ANALYSIS_INTERVAL_MS = 15 * 60 * 1000;
@@ -383,7 +384,7 @@ const App: React.FC = () => {
                         </button>
                         {nextAutoRunAt && autoAnalyzeEnabled && (
                           <span className="px-2 py-1 rounded border border-slate-800 bg-slate-900/50">
-                            下次: {new Date(nextAutoRunAt).toLocaleTimeString()}
+                            下次: {formatChinaTime(nextAutoRunAt)}
                           </span>
                         )}
                         {marketHistoryError && (
@@ -572,7 +573,7 @@ const App: React.FC = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                          <span>{new Date(item.timestamp).toLocaleString()}</span>
+                          <span>{formatChinaDateTime(item.timestamp)}</span>
                           {item.completedAt && (
                             <span className="text-green-500">已完成</span>
                           )}
