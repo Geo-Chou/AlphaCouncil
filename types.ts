@@ -59,6 +59,50 @@ export interface ApiKeys {
   twelveData?: string;
 }
 
+export interface GoldCandle {
+  datetime: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+export interface GoldRealtimeData {
+  symbol: string;
+  name: string;
+  price: number;
+  currency: string;
+  unit: string;
+  change: number;
+  changePercent: number;
+  open?: number;
+  previousClose?: number;
+  high?: number;
+  low?: number;
+  bid?: number;
+  ask?: number;
+  timestamp: number;
+  source: string;
+  sourceNote?: string;
+  cnReference?: {
+    cnyPerOunce?: number;
+    cnyPerGram?: number;
+    usdcny?: number;
+  };
+  candles?: GoldCandle[];
+  candleSeries?: Record<string, GoldCandle[]>;
+  creditsEstimate?: number;
+}
+
+export interface MarketSnapshot {
+  id: string;
+  symbol: string;
+  timestamp: number;
+  marketData: GoldRealtimeData;
+  gmDecision?: string;
+  gmOutput?: string;
+}
+
 
 
 // 全局工作流状态
@@ -67,6 +111,7 @@ export interface WorkflowState {
   currentStep: number; // 0: Idle, 1: Analysts, 2: Managers, 3: Risk, 4: GM
   stockSymbol: string;
   stockDataContext: string; // 存储格式化后的黄金行情数据
+  currentMarketData?: GoldRealtimeData;
 
   outputs: Partial<Record<AgentRole, string>>; // 各智能体的输出内容
   error?: string;

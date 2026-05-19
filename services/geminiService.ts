@@ -116,7 +116,7 @@ export async function generateAgentResponse(
 
 /**
  * 辅助函数：安全生成（带降级机制）
- * 如果首选模型失败（如 key 错误），自动降级使用 Gemini
+ * 如果首选模型失败（如 key 错误），优先降级到 DeepSeek，最后再尝试 Gemini
  */
 async function safeGenerate(
     config: AgentConfig,
@@ -128,18 +128,17 @@ async function safeGenerate(
     try {
         return await generateAgentResponse(config, stockSymbol, apiKeys, context, stockDataContext);
     } catch (e) {
-        console.warn(`Primary model failed for ${config.title}. Falling back to Gemini.`, e);
+        console.warn(`Primary model failed for ${config.title}. Falling back to backup model.`, e);
         
-        // 创建临时配置，强制使用 Gemini
         const fallbackConfig: AgentConfig = {
             ...config,
-            modelProvider: ModelProvider.GEMINI,
-            modelName: 'gemini-2.5-flash'
+            modelProvider: config.modelProvider === ModelProvider.DEEPSEEK ? ModelProvider.GEMINI : ModelProvider.DEEPSEEK,
+            modelName: config.modelProvider === ModelProvider.DEEPSEEK ? 'gemini-2.5-flash' : 'deepseek-chat'
         };
         
         try {
             const result = await generateAgentResponse(fallbackConfig, stockSymbol, apiKeys, context, stockDataContext);
-            return result + `\n\n*(注: 由于 ${config.modelProvider} 调用失败，本报告由 Gemini 2.5 Flash 应急生成)*`;
+            return result + `\n\n*(注: 由于 ${config.modelProvider} 调用失败，本报告由 ${fallbackConfig.modelName} 应急生成)*`;
         } catch (fallbackError) {
              return `分析失败: ${e instanceof Error ? e.message : '未知错误'}`;
         }

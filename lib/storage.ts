@@ -3,7 +3,7 @@ import { DEFAULT_AGENTS } from '../constants';
 
 const STORAGE_KEY = 'alphacouncil_workflow';
 const HISTORY_KEY = 'alphacouncil_history';
-const STORAGE_VERSION = 'v1';
+const STORAGE_VERSION = 'v2-gold-deepseek';
 const DATA_EXPIRY_MS = 30 * 60 * 1000; // 30分钟过期
 
 // 持久化数据结构（排除 apiKeys 和 error）
@@ -43,6 +43,7 @@ export function saveState(state: WorkflowState) {
       currentStep: state.currentStep,
       stockSymbol: state.stockSymbol,
       stockDataContext: state.stockDataContext,
+      currentMarketData: state.currentMarketData,
       outputs: state.outputs,
       agentConfigs: state.agentConfigs,
     }
@@ -204,6 +205,7 @@ export function restoreFromHistory(item: HistoryItem): Partial<WorkflowState> {
     currentStep: item.currentStep,
     outputs: item.outputs,
     stockDataContext: '', // 历史记录不保存实时行情，需要用户重新获取
+    currentMarketData: undefined,
     agentConfigs: JSON.parse(JSON.stringify(DEFAULT_AGENTS)), // 使用默认配置
     apiKeys: {}
   };
@@ -219,6 +221,7 @@ export function getInitialState(): WorkflowState {
     currentStep: persisted?.currentStep ?? 0,
     stockSymbol: persisted?.stockSymbol ?? '',
     stockDataContext: persisted?.stockDataContext ?? '',
+    currentMarketData: persisted?.currentMarketData,
     outputs: persisted?.outputs ?? {},
     agentConfigs: persisted?.agentConfigs ?? JSON.parse(JSON.stringify(DEFAULT_AGENTS)),
     apiKeys: {} // 始终从用户输入获取

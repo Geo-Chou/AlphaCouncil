@@ -1,43 +1,6 @@
-const BACKEND_API_URL = '/api/market';
+import { GoldRealtimeData } from '../types';
 
-export interface GoldRealtimeData {
-  symbol: string;
-  name: string;
-  price: number;
-  currency: string;
-  unit: string;
-  change: number;
-  changePercent: number;
-  open?: number;
-  previousClose?: number;
-  high?: number;
-  low?: number;
-  bid?: number;
-  ask?: number;
-  timestamp: number;
-  source: string;
-  sourceNote?: string;
-  cnReference?: {
-    cnyPerOunce?: number;
-    cnyPerGram?: number;
-    usdcny?: number;
-  };
-  candles?: Array<{
-    datetime: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-  }>;
-  candleSeries?: Record<string, Array<{
-    datetime: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-  }>>;
-  creditsEstimate?: number;
-}
+const BACKEND_API_URL = '/api/market';
 
 export async function fetchGoldData(symbol: string, apiKey?: string): Promise<GoldRealtimeData | null> {
   try {

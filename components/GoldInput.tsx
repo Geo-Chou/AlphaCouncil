@@ -13,7 +13,6 @@ const GoldInput: React.FC<GoldInputProps> = ({ onAnalyze, disabled }) => {
   const [apiKeys, setApiKeys] = useState<ApiKeys>({
     gemini: '',
     deepseek: '',
-    qwen: '',
     goldData: '',
     twelveData: ''
   });
@@ -107,18 +106,6 @@ const GoldInput: React.FC<GoldInputProps> = ({ onAnalyze, disabled }) => {
                             placeholder="选填，用于 XAU/USD 实时价格和K线"
                             value={apiKeys.twelveData || apiKeys.goldData || ''}
                             onChange={(e) => setApiKeys({...apiKeys, twelveData: e.target.value, goldData: e.target.value})}
-                            disabled={disabled}
-                        />
-                    </div>
-                    
-                    <div>
-                        <label className="block text-xs text-slate-400 mb-1">通义千问 API Key（可选）</label>
-                        <input
-                            type="password"
-                            className="w-full bg-slate-900/50 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                            placeholder="选填，用于 Qwen 模型调用"
-                            value={apiKeys.qwen || ''}
-                            onChange={(e) => setApiKeys({...apiKeys, qwen: e.target.value})}
                             disabled={disabled}
                         />
                     </div>

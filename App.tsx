@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { AgentRole, AnalysisStatus, WorkflowState, AgentConfig, ApiKeys, HistoryItem } from './types';
+import React, { useState, useEffect, useRef } from 'react';
+import { AgentRole, AnalysisStatus, WorkflowState, AgentConfig, ApiKeys, HistoryItem, MarketSnapshot } from './types';
 import { runAnalystsStage, runManagersStage, runRiskStage, runGMStage } from './services/geminiService';
 import { fetchGoldData, formatGoldDataForPrompt } from './services/marketDataService';
 import {
@@ -15,14 +15,24 @@ import {
 
 import GoldInput from './components/GoldInput';
 import AgentCard from './components/AgentCard';
+import GoldDecisionChart from './components/GoldDecisionChart';
 import { DEFAULT_AGENTS } from './constants';
-import { LayoutDashboard, BrainCircuit, ShieldCheck, Gavel, RefreshCw, AlertTriangle, Settings2, Database, History, Trash2, Clock, X } from 'lucide-react';
+import { getMarketHistory, saveMarketSnapshot, clearMarketHistory } from './lib/marketHistory';
+import { LayoutDashboard, BrainCircuit, ShieldCheck, Gavel, RefreshCw, AlertTriangle, Settings2, Database, History, Trash2, Clock, X, TimerReset } from 'lucide-react';
+
+const ANALYSIS_INTERVAL_MS = 15 * 60 * 1000;
 
 const App: React.FC = () => {
   const [state, setState] = useState<WorkflowState>(getInitialState);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [marketSnapshots, setMarketSnapshots] = useState<MarketSnapshot[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [restoredDataWarning, setRestoredDataWarning] = useState(false);
+  const [autoAnalyzeEnabled, setAutoAnalyzeEnabled] = useState(true);
+  const [nextAutoRunAt, setNextAutoRunAt] = useState<number | null>(null);
+  const [marketHistoryError, setMarketHistoryError] = useState<string | null>(null);
+  const isRunningRef = useRef(false);
+  const lastRunRef = useRef<{ symbol: string; apiKeys: ApiKeys } | null>(null);
 
   // 处理空闲状态下的配置修改（温度、模型等）
   const handleConfigChange = (role: AgentRole, newConfig: AgentConfig) => {
@@ -52,6 +62,7 @@ const App: React.FC = () => {
 
   // 主分析流程触发函数
   const handleAnalyze = async (symbol: string, apiKeys: ApiKeys) => {
+    if (isRunningRef.current) return;
     // 1. 验证黄金标的
     const validation = validateGoldSymbol(symbol);
     if (!validation.valid) {
@@ -63,12 +74,17 @@ const App: React.FC = () => {
       return;
     }
 
+    isRunningRef.current = true;
+    lastRunRef.current = { symbol, apiKeys };
+    setNextAutoRunAt(Date.now() + ANALYSIS_INTERVAL_MS);
+
     // 2. 初始化状态
     setState(prev => ({
       ...prev,
       status: AnalysisStatus.FETCHING_DATA,
       currentStep: 0,
       stockSymbol: normalizeGoldSymbol(symbol),
+      currentMarketData: undefined,
       outputs: {},
       apiKeys: apiKeys,
       error: undefined
@@ -98,7 +114,8 @@ const App: React.FC = () => {
         ...prev,
         status: AnalysisStatus.RUNNING,
         currentStep: 1,
-        stockDataContext: stockDataContext
+        stockDataContext: stockDataContext,
+        currentMarketData: stockData
       }));
 
       // 步骤 1: 5位分析师并行分析 (Analysts)
@@ -131,13 +148,34 @@ const App: React.FC = () => {
       // 步骤 4: 总经理最终决策 (GM)
       const outputsAfterStep3 = { ...outputsAfterStep2, ...riskResults };
       const gmResult = await runGMStage(normalizedSymbol, outputsAfterStep3, state.agentConfigs, apiKeys, stockDataContext);
+      const finalOutputs = { ...outputsAfterStep3, ...gmResult };
+      const completedState: WorkflowState = {
+        ...state,
+        status: AnalysisStatus.COMPLETED,
+        currentStep: 5,
+        stockSymbol: normalizedSymbol,
+        stockDataContext,
+        currentMarketData: stockData,
+        outputs: finalOutputs,
+        apiKeys
+      };
       
       setState(prev => ({
         ...prev,
         status: AnalysisStatus.COMPLETED,
-        currentStep: 5, // 流程结束
-        outputs: { ...prev.outputs, ...gmResult }
+        currentStep: 5,
+        currentMarketData: stockData,
+        outputs: finalOutputs
       }));
+
+      try {
+        await saveMarketSnapshot(completedState, stockData);
+        const snapshots = await getMarketHistory();
+        setMarketSnapshots(snapshots);
+        setMarketHistoryError(null);
+      } catch (snapshotError) {
+        setMarketHistoryError(snapshotError instanceof Error ? snapshotError.message : '行情快照保存失败');
+      }
 
     } catch (error) {
       console.error("工作流执行失败", error);
@@ -146,6 +184,8 @@ const App: React.FC = () => {
         status: AnalysisStatus.ERROR,
         error: error instanceof Error ? error.message : "发生未知错误"
       }));
+    } finally {
+      isRunningRef.current = false;
     }
   };
 
@@ -159,10 +199,31 @@ const App: React.FC = () => {
       currentStep: 0,
       stockSymbol: '',
       stockDataContext: '',
+      currentMarketData: undefined,
       outputs: {},
       agentConfigs: prev.agentConfigs,
       apiKeys: prev.apiKeys
     }));
+  };
+
+  const reloadMarketHistory = async () => {
+    try {
+      const snapshots = await getMarketHistory();
+      setMarketSnapshots(snapshots);
+      setMarketHistoryError(null);
+    } catch (error) {
+      setMarketHistoryError(error instanceof Error ? error.message : '行情历史读取失败');
+    }
+  };
+
+  const handleClearMarketSnapshots = async () => {
+    try {
+      await clearMarketHistory();
+      setMarketSnapshots([]);
+      setMarketHistoryError(null);
+    } catch (error) {
+      setMarketHistoryError(error instanceof Error ? error.message : '行情历史清空失败');
+    }
   };
 
   // 加载历史记录
@@ -178,6 +239,7 @@ const App: React.FC = () => {
       currentStep: 0,
       stockSymbol: restored.stockSymbol || '',
       stockDataContext: '',
+      currentMarketData: restored.currentMarketData,
       outputs: restored.outputs,
       agentConfigs: restored.agentConfigs,
       apiKeys: {}
@@ -217,6 +279,22 @@ const App: React.FC = () => {
       saveToHistory(state);
     }
   }, [state.status]);
+
+  useEffect(() => {
+    reloadMarketHistory();
+  }, []);
+
+  useEffect(() => {
+    if (!autoAnalyzeEnabled || !lastRunRef.current) return;
+    const timer = window.setInterval(() => {
+      if (!lastRunRef.current || isRunningRef.current) return;
+      if (Date.now() >= (nextAutoRunAt || 0)) {
+        handleAnalyze(lastRunRef.current.symbol, lastRunRef.current.apiKeys);
+      }
+    }, 15_000);
+
+    return () => window.clearInterval(timer);
+  }, [autoAnalyzeEnabled, nextAutoRunAt]);
 
   // 辅助函数：判断当前阶段是否正在加载
   const isStepLoading = (stepIndex: number) => state.status === AnalysisStatus.RUNNING && state.currentStep === stepIndex;
@@ -295,6 +373,25 @@ const App: React.FC = () => {
                         <Database className="w-3 h-3 text-blue-500" />
                         <span>数据源: Vercel 黄金行情代理 {state.stockDataContext.includes("无法获取") ? "(连接失败 - 使用AI保守估算)" : "(连接成功 - 行情已注入)"}</span>
                     </div>
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] md:text-xs text-slate-400">
+                        <button
+                          onClick={() => setAutoAnalyzeEnabled(!autoAnalyzeEnabled)}
+                          className={`flex items-center gap-1 px-2 py-1 rounded border ${autoAnalyzeEnabled ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-900/50 text-slate-400'}`}
+                        >
+                          <TimerReset className="w-3 h-3" />
+                          15分钟自动分析: {autoAnalyzeEnabled ? '开启' : '关闭'}
+                        </button>
+                        {nextAutoRunAt && autoAnalyzeEnabled && (
+                          <span className="px-2 py-1 rounded border border-slate-800 bg-slate-900/50">
+                            下次: {new Date(nextAutoRunAt).toLocaleTimeString()}
+                          </span>
+                        )}
+                        {marketHistoryError && (
+                          <span className="px-2 py-1 rounded border border-amber-500/20 bg-amber-500/10 text-amber-300">
+                            长期存储未启用: {marketHistoryError}
+                          </span>
+                        )}
+                    </div>
                     {/* 恢复数据警告提示 */}
                     {restoredDataWarning && (
                         <div className="flex items-center justify-between gap-2 text-[10px] md:text-xs text-amber-400 bg-amber-400/10 px-3 py-2 rounded border border-amber-500/20">
@@ -308,6 +405,15 @@ const App: React.FC = () => {
                         </div>
                     )}
                  </div>
+             )}
+
+             {(state.currentMarketData || marketSnapshots.length > 0) && (
+                <GoldDecisionChart
+                  marketData={state.currentMarketData || marketSnapshots[0]?.marketData}
+                  snapshots={marketSnapshots}
+                  gmOutput={state.outputs[AgentRole.GM]}
+                  onClearSnapshots={handleClearMarketSnapshots}
+                />
              )}
 
              {/* 第一阶段：5位分析师 */}

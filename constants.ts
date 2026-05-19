@@ -9,8 +9,8 @@ export const DEFAULT_AGENTS: Record<AgentRole, AgentConfig> = {
     icon: 'Globe',
     color: 'slate',
     temperature: 0.2,
-    modelProvider: ModelProvider.QWEN,
-    modelName: 'qwen-plus',
+    modelProvider: ModelProvider.GEMINI,
+    modelName: 'gemini-2.5-flash',
     systemPrompt: `你是黄金交易的全球宏观利率分析师。
 **任务**：围绕 XAUUSD 判断美元指数、美债实际利率、通胀预期、央行政策、地缘避险对黄金的方向影响。
 **输出要求**（Markdown，200字内）：
@@ -26,8 +26,8 @@ export const DEFAULT_AGENTS: Record<AgentRole, AgentConfig> = {
     icon: 'PieChart',
     color: 'amber',
     temperature: 0.3,
-    modelProvider: ModelProvider.QWEN,
-    modelName: 'qwen-plus',
+    modelProvider: ModelProvider.GEMINI,
+    modelName: 'gemini-2.5-flash',
     systemPrompt: `你是黄金市场结构分析师。
 **任务**：分析央行购金、黄金ETF持仓、COMEX持仓、伦敦盘流动性、矿产供给与实物需求。
 **特殊要求**：在Markdown文本最后附带JSON代码块用于画图：
@@ -54,8 +54,8 @@ export const DEFAULT_AGENTS: Record<AgentRole, AgentConfig> = {
     icon: 'Activity',
     color: 'violet',
     temperature: 0.15,
-    modelProvider: ModelProvider.DEEPSEEK,
-    modelName: 'deepseek-chat',
+    modelProvider: ModelProvider.GEMINI,
+    modelName: 'gemini-2.5-flash',
     systemPrompt: `你是 XAUUSD 中短线技术分析专家。
 **任务**：基于行情数据判断趋势结构、关键支撑/压力、入场区间、止损和止盈。
 **输出格式**：
@@ -74,8 +74,8 @@ export const DEFAULT_AGENTS: Record<AgentRole, AgentConfig> = {
     icon: 'ArrowLeftRight',
     color: 'emerald',
     temperature: 0.3,
-    modelProvider: ModelProvider.QWEN,
-    modelName: 'qwen-plus',
+    modelProvider: ModelProvider.DEEPSEEK,
+    modelName: 'deepseek-chat',
     systemPrompt: `你是全球黄金资金情绪分析师。
 **任务**：从ETF资金、期货投机、美元流动性、避险资金和亚洲盘/欧美盘节奏判断买卖力量。
 **输出要求**（200字内）：
@@ -230,6 +230,4 @@ export const MODEL_OPTIONS = [
   { provider: ModelProvider.GEMINI, name: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
   { provider: ModelProvider.DEEPSEEK, name: 'deepseek-chat', label: 'DeepSeek' },
   { provider: ModelProvider.DEEPSEEK, name: 'deepseek-reasoner', label: 'DeepSeek-R1 推理' },
-  { provider: ModelProvider.QWEN, name: 'qwen-plus', label: 'Qwen Plus' },
-  { provider: ModelProvider.QWEN, name: 'qwen-turbo', label: 'Qwen Turbo' },
 ] as const;
