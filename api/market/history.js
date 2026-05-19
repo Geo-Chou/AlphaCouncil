@@ -69,11 +69,7 @@ export default async function handler(req, res) {
       }
 
       const history = await readHistory();
-      const withoutDuplicate = history.filter(item =>
-        item.id !== snapshot.id &&
-        Math.abs((item.marketData?.timestamp || item.timestamp) - (snapshot.marketData?.timestamp || snapshot.timestamp)) > 60_000
-      );
-      const next = [snapshot, ...withoutDuplicate].slice(0, HISTORY_LIMIT);
+      const next = [snapshot, ...history.filter(item => item.id !== snapshot.id)].slice(0, HISTORY_LIMIT);
       await writeHistory(next);
       return res.json({ success: true, configured: true, item: snapshot, count: next.length });
     }
