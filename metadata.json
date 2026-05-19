@@ -1,5 +1,5 @@
 {
   "name": "AlphaCouncil AI (CN)",
-  "description": "多智能体股票分析决策系统 - 包含5个分析师，2个经理，2个风控，1个总经理的专业A股分析系统。",
+  "description": "多智能体黄金买卖决策系统 - 以 XAUUSD 为主数据源，面向国内交易者输出可执行方案。",
   "requestFramePermissions": []
 }

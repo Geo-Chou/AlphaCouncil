@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import { Search, Loader2, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { ApiKeys } from '../types';
 
-interface StockInputProps {
+interface GoldInputProps {
   onAnalyze: (symbol: string, apiKeys: ApiKeys) => void;
   disabled: boolean;
 }
 
-const StockInput: React.FC<StockInputProps> = ({ onAnalyze, disabled }) => {
+const GoldInput: React.FC<GoldInputProps> = ({ onAnalyze, disabled }) => {
   const [symbol, setSymbol] = useState('');
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKeys>({
     gemini: '',
     deepseek: '',
     qwen: '',
-    juhe: ''
+    goldData: '',
+    twelveData: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -37,7 +38,7 @@ const StockInput: React.FC<StockInputProps> = ({ onAnalyze, disabled }) => {
             <input
                 type="text"
                 className="w-full bg-transparent px-4 py-4 text-white placeholder-slate-500 focus:outline-none font-mono tracking-wider uppercase"
-                placeholder="请输入沪深股票代码 (如: 600519, 000001, 300750)"
+                placeholder="请输入黄金标的 (默认: XAUUSD / GOLD)"
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value)}
                 disabled={disabled}
@@ -99,13 +100,13 @@ const StockInput: React.FC<StockInputProps> = ({ onAnalyze, disabled }) => {
                     </div>
                     
                     <div>
-                        <label className="block text-xs text-slate-400 mb-1">聚合数据 API Key</label>
+                        <label className="block text-xs text-slate-400 mb-1">Twelve Data API Key</label>
                         <input
                             type="password"
                             className="w-full bg-slate-900/50 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                            placeholder="选填，用于获取实时股票数据"
-                            value={apiKeys.juhe || ''}
-                            onChange={(e) => setApiKeys({...apiKeys, juhe: e.target.value})}
+                            placeholder="选填，用于 XAU/USD 实时价格和K线"
+                            value={apiKeys.twelveData || apiKeys.goldData || ''}
+                            onChange={(e) => setApiKeys({...apiKeys, twelveData: e.target.value, goldData: e.target.value})}
                             disabled={disabled}
                         />
                     </div>
@@ -127,11 +128,11 @@ const StockInput: React.FC<StockInputProps> = ({ onAnalyze, disabled }) => {
 
         <div className="mt-3 text-center">
             <p className="text-xs text-slate-500">
-                💡 仅支持沪深股市代码   随机性数值越大，分析及决策越激进
+                仅支持 XAUUSD/GOLD。国内执行需自行匹配银行金、上海金、黄金ETF、纸黄金或合规平台开户品种。
             </p>
         </div>
     </div>
   );
 };
 
-export default StockInput;
+export default GoldInput;

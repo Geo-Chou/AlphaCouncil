@@ -124,9 +124,9 @@ export function saveToHistory(state: WorkflowState) {
     // 提取总经理的决策
     const gmOutput = state.outputs[AgentRole.GM] || '';
     let gmDecision = '分析中';
-    if (gmOutput.includes('🟢 买入')) gmDecision = '买入';
-    else if (gmOutput.includes('🔴 卖出')) gmDecision = '卖出';
-    else if (gmOutput.includes('🟡 观望')) gmDecision = '观望';
+    if (gmOutput.includes('买入')) gmDecision = '买入';
+    else if (gmOutput.includes('卖出')) gmDecision = '卖出';
+    else if (gmOutput.includes('观望')) gmDecision = '观望';
 
     const newItem: HistoryItem = {
       id: `${state.stockSymbol}-${Date.now()}`,
@@ -139,7 +139,7 @@ export function saveToHistory(state: WorkflowState) {
       outputs: state.outputs
     };
 
-    // 检查是否已存在相同股票的未完成记录，替换它
+    // 检查是否已存在相同标的的未完成记录，替换它
     const existingIndex = history.findIndex(
       item => item.stockSymbol === state.stockSymbol && item.status !== AnalysisStatus.COMPLETED
     );
@@ -203,7 +203,7 @@ export function restoreFromHistory(item: HistoryItem): Partial<WorkflowState> {
     status: item.status,
     currentStep: item.currentStep,
     outputs: item.outputs,
-    stockDataContext: '', // 历史记录不保存实时数据，需要用户重新获取
+    stockDataContext: '', // 历史记录不保存实时行情，需要用户重新获取
     agentConfigs: JSON.parse(JSON.stringify(DEFAULT_AGENTS)), // 使用默认配置
     apiKeys: {}
   };

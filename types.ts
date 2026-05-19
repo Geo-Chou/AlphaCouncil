@@ -55,7 +55,8 @@ export interface ApiKeys {
   gemini?: string;
   deepseek?: string;
   qwen?: string;
-  juhe?: string;
+  goldData?: string;
+  twelveData?: string;
 }
 
 
@@ -65,7 +66,7 @@ export interface WorkflowState {
   status: AnalysisStatus;
   currentStep: number; // 0: Idle, 1: Analysts, 2: Managers, 3: Risk, 4: GM
   stockSymbol: string;
-  stockDataContext: string; // 存储格式化后的聚合数据
+  stockDataContext: string; // 存储格式化后的黄金行情数据
 
   outputs: Partial<Record<AgentRole, string>>; // 各智能体的输出内容
   error?: string;

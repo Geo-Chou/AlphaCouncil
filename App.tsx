@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AgentRole, AnalysisStatus, WorkflowState, AgentConfig, ApiKeys, HistoryItem } from './types';
 import { runAnalystsStage, runManagersStage, runRiskStage, runGMStage } from './services/geminiService';
-import { fetchStockData, formatStockDataForPrompt } from './services/juheService';
+import { fetchGoldData, formatGoldDataForPrompt } from './services/marketDataService';
 import {
   getInitialState,
   saveState,
@@ -13,7 +13,7 @@ import {
   restoreFromHistory
 } from './lib/storage';
 
-import StockInput from './components/StockInput';
+import GoldInput from './components/GoldInput';
 import AgentCard from './components/AgentCard';
 import { DEFAULT_AGENTS } from './constants';
 import { LayoutDashboard, BrainCircuit, ShieldCheck, Gavel, RefreshCw, AlertTriangle, Settings2, Database, History, Trash2, Clock, X } from 'lucide-react';
@@ -35,37 +35,25 @@ const App: React.FC = () => {
     }));
   };
 
-  // 验证股票代码是否为沪深股市代码
-  const validateStockCode = (symbol: string): { valid: boolean; message?: string } => {
-    const code = symbol.trim().toLowerCase();
-    
-    // 带前缀的验证
-    if (code.startsWith('sh') || code.startsWith('sz')) {
-      const num = code.substring(2);
-      if (!/^\d{6}$/.test(num)) {
-        return { valid: false, message: '股票代码格式错误，应为6位数字（如: sh600519, sz000001）' };
-      }
-      return { valid: true };
+  // 验证黄金交易标的
+  const normalizeGoldSymbol = (symbol: string) => {
+    const code = symbol.trim().toUpperCase();
+    if (!code || code === 'GOLD' || code === 'XAU' || code === 'XAU/USD') return 'XAUUSD';
+    return code;
+  };
+
+  const validateGoldSymbol = (symbol: string): { valid: boolean; message?: string } => {
+    const code = symbol.trim().toUpperCase();
+    if (!['XAUUSD', 'XAU/USD', 'GOLD', 'XAU', 'GC=F'].includes(code)) {
+      return { valid: false, message: '当前系统聚焦黄金交易，请输入 XAUUSD 或 GOLD' };
     }
-    
-    // 不带前缀的验证
-    if (!/^\d{6}$/.test(code)) {
-      return { valid: false, message: '股票代码应为6位数字（如: 600519, 000001, 300750）' };
-    }
-    
-    // 验证沪深市场代码规则
-    const firstDigit = code.charAt(0);
-    if (!['0', '1', '2', '3', '6', '8', '9'].includes(firstDigit)) {
-      return { valid: false, message: '不是有效的沪深股市代码（沪市以6/9开头，深市以0/2/3开头）' };
-    }
-    
     return { valid: true };
   };
 
   // 主分析流程触发函数
   const handleAnalyze = async (symbol: string, apiKeys: ApiKeys) => {
-    // 1. 验证股票代码
-    const validation = validateStockCode(symbol);
+    // 1. 验证黄金标的
+    const validation = validateGoldSymbol(symbol);
     if (!validation.valid) {
       setState(prev => ({
         ...prev,
@@ -80,7 +68,7 @@ const App: React.FC = () => {
       ...prev,
       status: AnalysisStatus.FETCHING_DATA,
       currentStep: 0,
-      stockSymbol: symbol,
+      stockSymbol: normalizeGoldSymbol(symbol),
       outputs: {},
       apiKeys: apiKeys,
       error: undefined
@@ -88,21 +76,22 @@ const App: React.FC = () => {
 
     let stockDataContext = "";
     try {
-      // 步骤 0: 从聚合数据 API 获取实时行情，传递 API Key
-      const stockData = await fetchStockData(symbol, apiKeys.juhe);
+      // 步骤 0: 从黄金行情代理获取实时/准实时行情
+      const normalizedSymbol = normalizeGoldSymbol(symbol);
+      const stockData = await fetchGoldData(normalizedSymbol, apiKeys.twelveData || apiKeys.goldData);
       
       // 3. 检查数据获取是否成功
       if (!stockData) {
         setState(prev => ({
           ...prev,
           status: AnalysisStatus.ERROR,
-          error: `无法获取股票 ${symbol.toUpperCase()} 的实时数据。请检查：\n1. 股票代码是否正确（如: 600519, 000001, 300750）\n2. 是否为沪深股市代码（不支持港股/美股）\n3. API服务是否正常`
+          error: `无法获取 ${normalizedSymbol} 的黄金行情。请检查：\n1. 标的是否为 XAUUSD/GOLD\n2. Vercel 环境变量 TWELVE_DATA_API_KEY 是否可用\n3. 备用行情源是否可访问`
         }));
         return; // 停止分析流程
       }
       
-      stockDataContext = formatStockDataForPrompt(stockData);
-      console.log(`[前端] 成功获取 ${stockData.name} (${stockData.gid}) 的实时数据`);
+      stockDataContext = formatGoldDataForPrompt(stockData);
+      console.log(`[前端] 成功获取 ${stockData.name} (${stockData.symbol}) 的黄金行情`);
       
       // 更新状态，准备开始第一阶段分析
       setState(prev => ({
@@ -113,7 +102,7 @@ const App: React.FC = () => {
       }));
 
       // 步骤 1: 5位分析师并行分析 (Analysts)
-      const analystResults = await runAnalystsStage(symbol, state.agentConfigs, apiKeys, stockDataContext);
+      const analystResults = await runAnalystsStage(normalizedSymbol, state.agentConfigs, apiKeys, stockDataContext);
       setState(prev => ({
         ...prev,
         currentStep: 2,
@@ -123,7 +112,7 @@ const App: React.FC = () => {
       // 步骤 2: 2位总监整合报告 (Managers)
       // 需要将步骤1的结果传递给经理
       const outputsAfterStep1 = { ...state.outputs, ...analystResults };
-      const managerResults = await runManagersStage(symbol, outputsAfterStep1, state.agentConfigs, apiKeys, stockDataContext);
+      const managerResults = await runManagersStage(normalizedSymbol, outputsAfterStep1, state.agentConfigs, apiKeys, stockDataContext);
       setState(prev => ({
         ...prev,
         currentStep: 3,
@@ -132,7 +121,7 @@ const App: React.FC = () => {
 
       // 步骤 3: 风控团队评估 (Risk)
       const outputsAfterStep2 = { ...outputsAfterStep1, ...managerResults };
-      const riskResults = await runRiskStage(symbol, outputsAfterStep2, state.agentConfigs, apiKeys, stockDataContext);
+      const riskResults = await runRiskStage(normalizedSymbol, outputsAfterStep2, state.agentConfigs, apiKeys, stockDataContext);
       setState(prev => ({
         ...prev,
         currentStep: 4,
@@ -141,7 +130,7 @@ const App: React.FC = () => {
 
       // 步骤 4: 总经理最终决策 (GM)
       const outputsAfterStep3 = { ...outputsAfterStep2, ...riskResults };
-      const gmResult = await runGMStage(symbol, outputsAfterStep3, state.agentConfigs, apiKeys, stockDataContext);
+      const gmResult = await runGMStage(normalizedSymbol, outputsAfterStep3, state.agentConfigs, apiKeys, stockDataContext);
       
       setState(prev => ({
         ...prev,
@@ -274,15 +263,15 @@ const App: React.FC = () => {
         {state.status === AnalysisStatus.IDLE && (
            <div className="flex flex-col items-center justify-center mb-8 md:mb-16 animate-fade-in-up mt-4 md:mt-10">
               <h2 className="text-2xl md:text-5xl font-bold text-center text-white mb-4 md:mb-6 tracking-tight leading-tight">
-                多智能体股票分析决策系统<br />
+                多智能体黄金买卖决策系统<br />
                 <span className="text-lg md:text-3xl text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 block mt-2 md:mt-4 font-normal">
                    Institutional Grade Multi-Agent System
                 </span>
               </h2>
               <p className="text-slate-400 max-w-xl text-center mb-8 md:mb-10 text-sm md:text-lg px-2">
-                部署由10位AI专家组成的决策委员会。接入聚合数据API实时行情，全方位扫描A股投资机会。
+                部署由10位AI专家组成的决策委员会。围绕 XAUUSD、美元、利率、避险和国内执行渠道生成买卖决策。
               </p>
-              <StockInput onAnalyze={handleAnalyze} disabled={false} />
+              <GoldInput onAnalyze={handleAnalyze} disabled={false} />
            </div>
         )}
 
@@ -292,7 +281,7 @@ const App: React.FC = () => {
                  <div className="flex flex-col gap-2">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                         <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2 md:gap-3">
-                            分析标的: <span className="font-mono text-blue-400 bg-blue-400/10 px-3 py-1 rounded">{state.stockSymbol.toUpperCase()}</span>
+                            黄金标的: <span className="font-mono text-amber-300 bg-amber-400/10 px-3 py-1 rounded">{state.stockSymbol.toUpperCase()}</span>
                         </h2>
                         {state.error && (
                             <div className="flex items-center gap-2 text-red-400 bg-red-400/10 px-3 py-1.5 rounded border border-red-500/20 text-xs md:text-sm">
@@ -304,14 +293,14 @@ const App: React.FC = () => {
                     {/* 数据源状态指示器 */}
                     <div className="flex items-center gap-2 text-[10px] md:text-xs text-slate-400 bg-slate-900/50 p-2 rounded border border-slate-800 w-fit">
                         <Database className="w-3 h-3 text-blue-500" />
-                        <span>数据源: 聚合数据 API (Juhe Data) {state.stockDataContext.includes("无法获取") ? "(连接失败 - 使用AI估算)" : "(连接成功 - 实时数据已注入)"}</span>
+                        <span>数据源: Vercel 黄金行情代理 {state.stockDataContext.includes("无法获取") ? "(连接失败 - 使用AI保守估算)" : "(连接成功 - 行情已注入)"}</span>
                     </div>
                     {/* 恢复数据警告提示 */}
                     {restoredDataWarning && (
                         <div className="flex items-center justify-between gap-2 text-[10px] md:text-xs text-amber-400 bg-amber-400/10 px-3 py-2 rounded border border-amber-500/20">
                             <div className="flex items-center gap-2">
                                 <Clock className="w-3 h-3" />
-                                <span>已从历史记录恢复分析结果，股票数据可能已过期</span>
+                                <span>已从历史记录恢复分析结果，黄金行情可能已过期</span>
                             </div>
                             <button onClick={() => setRestoredDataWarning(false)} className="hover:text-amber-300">
                                 <X className="w-3 h-3" />
