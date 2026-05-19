@@ -6,6 +6,7 @@ const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY;
 const USD_CNY = Number(process.env.USD_CNY || process.env.NEXT_PUBLIC_USD_CNY);
 
 const TWELVE_DATA_BASE_URL = 'https://api.twelvedata.com';
+const TWELVE_DATA_FX_SYMBOL = process.env.TWELVE_DATA_FX_SYMBOL || 'USD/CNH';
 const TWELVE_DATA_INTERVALS = ['15min', '1h', '4h', '1day'];
 const TWELVE_DATA_OUTPUT_SIZE = 200;
 const CACHE_TTL_MS = 14 * 60 * 1000;
@@ -129,6 +130,10 @@ async function fetchTwelveDataGold(apiKey) {
   quoteUrl.searchParams.set('symbol', 'XAU/USD');
   quoteUrl.searchParams.set('apikey', effectiveApiKey);
 
+  const fxQuoteUrl = new URL(`${TWELVE_DATA_BASE_URL}/quote`);
+  fxQuoteUrl.searchParams.set('symbol', TWELVE_DATA_FX_SYMBOL);
+  fxQuoteUrl.searchParams.set('apikey', effectiveApiKey);
+
   const timeSeriesUrls = TWELVE_DATA_INTERVALS.map(interval => {
     const url = new URL(`${TWELVE_DATA_BASE_URL}/time_series`);
     url.searchParams.set('symbol', 'XAU/USD');
@@ -138,8 +143,9 @@ async function fetchTwelveDataGold(apiKey) {
     return { interval, url };
   });
 
-  const [quoteResponse, ...timeSeriesResponses] = await Promise.all([
+  const [quoteResponse, fxQuoteResponse, ...timeSeriesResponses] = await Promise.all([
     fetch(quoteUrl.toString(), { headers: { Accept: 'application/json' } }),
+    fetch(fxQuoteUrl.toString(), { headers: { Accept: 'application/json' } }),
     ...timeSeriesUrls.map(({ url }) => fetch(url.toString(), { headers: { Accept: 'application/json' } }))
   ]);
 
@@ -150,6 +156,14 @@ async function fetchTwelveDataGold(apiKey) {
   const quote = await quoteResponse.json();
   if (quote.status === 'error' || quote.code) {
     throw new Error(`Twelve Data quote 错误: ${quote.message || quote.code}`);
+  }
+
+  let usdcny;
+  if (fxQuoteResponse.ok) {
+    const fxQuote = await fxQuoteResponse.json();
+    if (fxQuote.status !== 'error' && !fxQuote.code) {
+      usdcny = toNumber(fxQuote.close) ?? toNumber(fxQuote.price);
+    }
   }
 
   const candleSeries = {};
@@ -196,10 +210,11 @@ async function fetchTwelveDataGold(apiKey) {
     ask: toNumber(quote.ask),
     timestamp: quote.datetime ? Date.parse(`${quote.datetime}Z`) : Date.now(),
     source: 'Twelve Data',
-    sourceNote: `XAU/USD quote + time_series ${TWELVE_DATA_INTERVALS.join('/')} (${Object.values(candleSeries).reduce((total, list) => total + list.length, 0)} candles)`,
+    sourceNote: `XAU/USD quote + ${TWELVE_DATA_FX_SYMBOL} quote + time_series ${TWELVE_DATA_INTERVALS.join('/')} (${Object.values(candleSeries).reduce((total, list) => total + list.length, 0)} candles)`,
     candles,
     candleSeries,
-    creditsEstimate: 1 + TWELVE_DATA_INTERVALS.length
+    creditsEstimate: 2 + TWELVE_DATA_INTERVALS.length,
+    usdcny
   });
   writeCache(cacheKey, data);
   return data;
