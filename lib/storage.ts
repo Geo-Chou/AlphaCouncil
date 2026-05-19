@@ -137,6 +137,8 @@ export function saveToHistory(state: WorkflowState) {
       timestamp: Date.now(),
       completedAt: state.status === AnalysisStatus.COMPLETED ? Date.now() : undefined,
       gmDecision,
+      price: state.currentMarketData?.price,
+      priceTime: state.currentMarketData?.timestamp,
       outputs: state.outputs
     };
 

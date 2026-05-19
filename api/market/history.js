@@ -79,6 +79,14 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
+      const id = req.query?.id;
+      if (id) {
+        const history = await readHistory();
+        const next = history.filter(item => item.id !== id);
+        await writeHistory(next);
+        return res.json({ success: true, configured: true, items: next });
+      }
+
       await writeHistory([]);
       return res.json({ success: true, configured: true, items: [] });
     }

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   CartesianGrid,
+  Brush,
   ComposedChart,
   Line,
   ReferenceDot,
@@ -216,6 +217,14 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
                 {settings.showSnapshotMarks && snapshotMarks.map((mark, index) => (
                   <ReferenceDot key={`${mark.x}-${index}`} x={mark.x} y={mark.y} r={4} fill={decisionColor(mark.decision)} stroke="#020617" />
                 ))}
+                <Brush
+                  dataKey="time"
+                  height={28}
+                  travellerWidth={10}
+                  stroke="#334155"
+                  fill="#020617"
+                  tickFormatter={(value) => formatSourceMonthDayTime(String(value))}
+                />
               </ComposedChart>
             </ResponsiveContainer>
           ) : (

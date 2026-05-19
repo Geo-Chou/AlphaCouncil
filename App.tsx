@@ -17,11 +17,26 @@ import GoldInput from './components/GoldInput';
 import AgentCard from './components/AgentCard';
 import GoldDecisionChart from './components/GoldDecisionChart';
 import { DEFAULT_AGENTS } from './constants';
-import { getMarketHistory, saveMarketSnapshot, clearMarketHistory } from './lib/marketHistory';
+import { getMarketHistory, saveMarketSnapshot, clearMarketHistory, deleteMarketSnapshot } from './lib/marketHistory';
 import { formatChinaTime, formatChinaDateTime } from './lib/time';
 import { LayoutDashboard, BrainCircuit, ShieldCheck, Gavel, RefreshCw, AlertTriangle, Settings2, Database, History, Trash2, Clock, X, TimerReset } from 'lucide-react';
 
 const ANALYSIS_INTERVAL_MS = 15 * 60 * 1000;
+
+function snapshotToHistoryItem(snapshot: MarketSnapshot): HistoryItem {
+  return {
+    id: snapshot.id,
+    stockSymbol: snapshot.symbol,
+    status: snapshot.status || AnalysisStatus.COMPLETED,
+    currentStep: snapshot.currentStep || 5,
+    timestamp: snapshot.timestamp,
+    completedAt: snapshot.timestamp,
+    gmDecision: snapshot.gmDecision,
+    price: snapshot.marketData?.price,
+    priceTime: snapshot.marketData?.timestamp,
+    outputs: snapshot.outputs || (snapshot.gmOutput ? { [AgentRole.GM]: snapshot.gmOutput } : {})
+  };
+}
 
 const App: React.FC = () => {
   const [state, setState] = useState<WorkflowState>(getInitialState);
@@ -173,6 +188,7 @@ const App: React.FC = () => {
         await saveMarketSnapshot(completedState, stockData);
         const snapshots = await getMarketHistory();
         setMarketSnapshots(snapshots);
+        setHistory(snapshots.map(snapshotToHistoryItem));
         setMarketHistoryError(null);
       } catch (snapshotError) {
         setMarketHistoryError(snapshotError instanceof Error ? snapshotError.message : '行情快照保存失败');
@@ -211,6 +227,7 @@ const App: React.FC = () => {
     try {
       const snapshots = await getMarketHistory();
       setMarketSnapshots(snapshots);
+      setHistory(snapshots.map(snapshotToHistoryItem));
       setMarketHistoryError(null);
     } catch (error) {
       setMarketHistoryError(error instanceof Error ? error.message : '行情历史读取失败');
@@ -221,6 +238,7 @@ const App: React.FC = () => {
     try {
       await clearMarketHistory();
       setMarketSnapshots([]);
+      setHistory([]);
       setMarketHistoryError(null);
     } catch (error) {
       setMarketHistoryError(error instanceof Error ? error.message : '行情历史清空失败');
@@ -229,7 +247,7 @@ const App: React.FC = () => {
 
   // 加载历史记录
   const loadHistory = () => {
-    setHistory(getHistory());
+    reloadMarketHistory().catch(() => setHistory(getHistory()));
   };
 
   // 从历史记录恢复
@@ -251,14 +269,20 @@ const App: React.FC = () => {
 
   // 删除历史记录
   const handleDeleteHistory = (id: string) => {
-    deleteFromHistory(id);
-    loadHistory();
+    deleteMarketSnapshot(id)
+      .then(reloadMarketHistory)
+      .catch(() => {
+        deleteFromHistory(id);
+        loadHistory();
+      });
   };
 
   // 清空历史记录
   const handleClearHistory = () => {
-    clearHistory();
-    loadHistory();
+    handleClearMarketSnapshots().catch(() => {
+      clearHistory();
+      loadHistory();
+    });
   };
 
   // 打开历史面板
@@ -578,6 +602,12 @@ const App: React.FC = () => {
                             <span className="text-green-500">已完成</span>
                           )}
                         </div>
+                        {item.price && (
+                          <div className="mt-1 text-[10px] text-slate-400">
+                            决策价: <span className="font-mono text-amber-300">${item.price.toFixed(2)}</span>
+                            {item.priceTime ? <span className="ml-2">{formatChinaDateTime(item.priceTime)}</span> : null}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button

@@ -101,6 +101,9 @@ export interface MarketSnapshot {
   marketData: GoldRealtimeData;
   gmDecision?: string;
   gmOutput?: string;
+  outputs?: Partial<Record<AgentRole, string>>;
+  status?: AnalysisStatus;
+  currentStep?: number;
 }
 
 
@@ -128,5 +131,7 @@ export interface HistoryItem {
   timestamp: number;
   completedAt?: number;
   gmDecision?: string; // 总经理的决策（买入/观望/卖出）
+  price?: number;
+  priceTime?: number;
   outputs: Partial<Record<AgentRole, string>>;
 }

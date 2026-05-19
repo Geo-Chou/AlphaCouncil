@@ -28,9 +28,12 @@ export async function saveMarketSnapshot(state: WorkflowState, marketData: GoldR
     id: `${marketData.symbol}-${marketData.timestamp}-${Date.now()}`,
     symbol: marketData.symbol,
     timestamp: Date.now(),
-    marketData,
-    gmDecision: getDecisionFromOutput(gmOutput),
-    gmOutput
+      marketData,
+      gmDecision: getDecisionFromOutput(gmOutput),
+      gmOutput,
+      outputs: state.outputs,
+      status: state.status,
+      currentStep: state.currentStep
   };
 
   await requestHistory('', {
@@ -42,4 +45,8 @@ export async function saveMarketSnapshot(state: WorkflowState, marketData: GoldR
 
 export async function clearMarketHistory() {
   await requestHistory('', { method: 'DELETE' });
+}
+
+export async function deleteMarketSnapshot(id: string) {
+  await requestHistory(`?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
