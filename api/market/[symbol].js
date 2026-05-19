@@ -9,6 +9,7 @@ const TWELVE_DATA_BASE_URL = 'https://api.twelvedata.com';
 const TWELVE_DATA_FX_SYMBOL = process.env.TWELVE_DATA_FX_SYMBOL || 'USD/CNH';
 const TWELVE_DATA_INTERVALS = ['15min', '1h', '4h', '1day'];
 const TWELVE_DATA_OUTPUT_SIZE = 200;
+const TWELVE_DATA_TIME_OFFSET_MINUTES = Number(process.env.TWELVE_DATA_TIME_OFFSET_MINUTES ?? -120);
 const CACHE_TTL_MS = 14 * 60 * 1000;
 const MARKET_CACHE = globalThis.__ALPHACOUNCIL_MARKET_CACHE__ || new Map();
 globalThis.__ALPHACOUNCIL_MARKET_CACHE__ = MARKET_CACHE;
@@ -41,12 +42,25 @@ function withCnReference(data) {
 
 function normalizeCandle(candle) {
   return {
-    datetime: candle.datetime,
+    datetime: normalizeTwelveDataDatetime(candle.datetime),
     open: toNumber(candle.open),
     high: toNumber(candle.high),
     low: toNumber(candle.low),
     close: toNumber(candle.close)
   };
+}
+
+function normalizeTwelveDataDatetime(datetime) {
+  if (!datetime || typeof datetime !== 'string') return datetime;
+  if (!datetime.includes(':')) return datetime;
+
+  const normalized = datetime.includes('T') ? datetime : datetime.replace(' ', 'T');
+  const time = new Date(normalized).getTime();
+  if (!Number.isFinite(time)) return datetime;
+
+  const shifted = new Date(time + TWELVE_DATA_TIME_OFFSET_MINUTES * 60 * 1000);
+  const pad = value => String(value).padStart(2, '0');
+  return `${shifted.getFullYear()}-${pad(shifted.getMonth() + 1)}-${pad(shifted.getDate())} ${pad(shifted.getHours())}:${pad(shifted.getMinutes())}:${pad(shifted.getSeconds())}`;
 }
 
 function readCache(key) {
@@ -208,9 +222,9 @@ async function fetchTwelveDataGold(apiKey) {
     low: toNumber(quote.low),
     bid: toNumber(quote.bid),
     ask: toNumber(quote.ask),
-    timestamp: quote.datetime ? Date.parse(`${quote.datetime}Z`) : Date.now(),
+    timestamp: toNumber(quote.last_quote_at) ? toNumber(quote.last_quote_at) * 1000 : toNumber(quote.timestamp) ? toNumber(quote.timestamp) * 1000 : Date.now(),
     source: 'Twelve Data',
-    sourceNote: `XAU/USD quote + ${TWELVE_DATA_FX_SYMBOL} quote + time_series ${TWELVE_DATA_INTERVALS.join('/')} (${Object.values(candleSeries).reduce((total, list) => total + list.length, 0)} candles)`,
+    sourceNote: `XAU/USD quote + ${TWELVE_DATA_FX_SYMBOL} quote + time_series ${TWELVE_DATA_INTERVALS.join('/')} (${Object.values(candleSeries).reduce((total, list) => total + list.length, 0)} candles; K线时间偏移 ${TWELVE_DATA_TIME_OFFSET_MINUTES}min)`,
     candles,
     candleSeries,
     creditsEstimate: 2 + TWELVE_DATA_INTERVALS.length,
