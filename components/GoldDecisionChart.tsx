@@ -154,11 +154,11 @@ const GoldDecisionChart: React.FC<GoldDecisionChartProps> = ({ marketData, snaps
     const first = sourceTimestamp(chartData[0].time);
     const last = sourceTimestamp(chartData[chartData.length - 1].time);
     return snapshots
-      .filter(snapshot => snapshot.marketData?.price && snapshot.marketData.timestamp >= first - 12 * 60 * 60 * 1000 && snapshot.marketData.timestamp <= last + 12 * 60 * 60 * 1000)
+      .filter(snapshot => snapshot.marketData?.price && snapshot.timestamp >= first - 12 * 60 * 60 * 1000 && snapshot.timestamp <= last + 12 * 60 * 60 * 1000)
       .slice(0, 40)
       .map(snapshot => {
         const nearest = chartData.reduce((best, point) => {
-          const diff = Math.abs(sourceTimestamp(point.time) - snapshot.marketData.timestamp);
+          const diff = Math.abs(sourceTimestamp(point.time) - snapshot.timestamp);
           return diff < best.diff ? { point, diff } : best;
         }, { point: chartData[0], diff: Number.POSITIVE_INFINITY });
         return {

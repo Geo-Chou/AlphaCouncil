@@ -33,7 +33,7 @@ function snapshotToHistoryItem(snapshot: MarketSnapshot): HistoryItem {
     completedAt: snapshot.timestamp,
     gmDecision: snapshot.gmDecision,
     price: snapshot.marketData?.price,
-    priceTime: snapshot.marketData?.timestamp,
+    priceTime: snapshot.timestamp,
     outputs: snapshot.outputs || (snapshot.gmOutput ? { [AgentRole.GM]: snapshot.gmOutput } : {})
   };
 }
@@ -605,7 +605,7 @@ const App: React.FC = () => {
                         {item.price && (
                           <div className="mt-1 text-[10px] text-slate-400">
                             决策价: <span className="font-mono text-amber-300">${item.price.toFixed(2)}</span>
-                            {item.priceTime ? <span className="ml-2">{formatChinaDateTime(item.priceTime)}</span> : null}
+                            <span className="ml-2">分析时间: {formatChinaDateTime(item.priceTime || item.timestamp)}</span>
                           </div>
                         )}
                       </div>
